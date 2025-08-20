@@ -1,0 +1,41 @@
+﻿using SharedKernel;
+
+namespace Domain.Users;
+
+public sealed class User : Entity
+{
+    public int Id { get; }
+    public string Name { get; private set; } = string.Empty;
+
+    // Private constructor for EF Core
+    private User()
+    {
+    }
+
+    public User(string name)
+    {
+        ValidateName(name);
+        Name = name;
+
+        Raise(new UserCreatedDomainEvent(Id, name));
+    }
+
+    public void UpdateName(string name)
+    {
+        ValidateName(name);
+        Name = name;
+    }
+
+    private static void ValidateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("User name cannot be empty");
+        }
+
+        if (name.Length > 100)
+        {
+            throw new ArgumentException("User name cannot exceed 100 characters");
+        }
+    }
+}

@@ -1,0 +1,164 @@
+using Application.Abstractions.Repositories;
+using Application.DTOs;
+using Application.MeetingScheduler.Meetings.GetUserMeetings;
+using Domain.Meetings;
+using Domain.Users;
+using Moq;
+using SharedKernel;
+
+namespace Application.UnitTests.MeetingScheduler.Meetings.GetUserMeetings;
+
+public class GetUserMeetingsQueryHandlerTests
+{
+    private readonly Mock<IMeetingRepository> _mockMeetingRepository;
+    private readonly Mock<IMeetingUserRepository> _mockUserRepository;
+    private readonly GetUserMeetingsQueryHandler _handler;
+
+    public GetUserMeetingsQueryHandlerTests()
+    {
+        _mockMeetingRepository = new Mock<IMeetingRepository>();
+        _mockUserRepository = new Mock<IMeetingUserRepository>();
+
+        _handler = new GetUserMeetingsQueryHandler(
+            _mockMeetingRepository.Object,
+            _mockUserRepository.Object);
+    }
+
+    [Fact]
+    public async Task Handle_WithValidUserId_ShouldReturnUserMeetings()
+    {
+        // Arrange
+        const int userId = 1;
+        var query = new GetUserMeetingsQuery(userId);
+        var user = new MeetingUser("John Doe");
+
+        var meetings = new List<Meeting>
+        {
+            new([1, 2], new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc)),
+            new([1, 3], new DateTime(2024, 1, 15, 14, 0, 0, DateTimeKind.Utc), new DateTime(2024, 1, 15, 15, 0, 0, DateTimeKind.Utc))
+        };
+
+        _mockUserRepository
+            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockMeetingRepository
+            .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(meetings);
+
+        // Act
+        Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(2, result.Value.Count);
+        Assert.Equal(new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), result.Value[0].StartTime);
+        Assert.Equal(new DateTime(2024, 1, 15, 14, 0, 0, DateTimeKind.Utc), result.Value[1].StartTime);
+    }
+
+    [Fact]
+    public async Task Handle_WithNonExistentUserId_ShouldReturnFailureResult()
+    {
+        // Arrange
+        const int userId = 999;
+        var query = new GetUserMeetingsQuery(userId);
+
+        _mockUserRepository
+            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MeetingUser?)null);
+
+        // Act
+        Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsFailure);
+        Assert.Equal(UserErrors.NotFound(userId), result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_WithUserWithNoMeetings_ShouldReturnEmptyList()
+    {
+        // Arrange
+        const int userId = 1;
+        var query = new GetUserMeetingsQuery(userId);
+        var user = new MeetingUser("John Doe");
+
+        _mockUserRepository
+            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockMeetingRepository
+            .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        // Act
+        Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Empty(result.Value);
+    }
+
+    [Fact]
+    public async Task Handle_WithValidUserId_ShouldCallRepositoryMethods()
+    {
+        // Arrange
+        const int userId = 1;
+        var query = new GetUserMeetingsQuery(userId);
+        var user = new MeetingUser("John Doe");
+        var meetings = new List<Meeting>();
+
+        _mockUserRepository
+            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockMeetingRepository
+            .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(meetings);
+
+        // Act
+        await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        _mockUserRepository.Verify(
+            static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _mockMeetingRepository.Verify(
+            static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WithCancellationToken_ShouldPassTokenToRepositories()
+    {
+        // Arrange
+        const int userId = 1;
+        var query = new GetUserMeetingsQuery(userId);
+        var user = new MeetingUser("John Doe");
+        var meetings = new List<Meeting>();
+        var cancellationToken = new CancellationToken();
+
+        _mockUserRepository
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _mockMeetingRepository
+            .Setup(r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(meetings);
+
+        // Act
+        await _handler.Handle(query, cancellationToken);
+
+        // Assert
+        _mockUserRepository.Verify(
+            r => r.GetByIdAsync(userId, cancellationToken),
+            Times.Once);
+
+        _mockMeetingRepository.Verify(
+            r => r.GetUserMeetingsAsync(userId, cancellationToken),
+            Times.Once);
+    }
+}
