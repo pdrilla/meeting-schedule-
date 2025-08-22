@@ -1,0 +1,19 @@
+name: Docker Compose
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start services
+        run: docker compose up --build -d
+      - name: List containers
+        run: docker compose ps
+      - name: Shutdown
+        if: always()
+        run: docker compose down

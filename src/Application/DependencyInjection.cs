@@ -22,11 +22,11 @@ public static class DependencyInjection
                 .WithScopedLifetime());
 
         services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationDecorator.CommandHandler<,>));
-        services.Decorate(typeof(ICommandHandler<>), typeof(ValidationDecorator.CommandBaseHandler<>));
+        services.TryDecorate(typeof(ICommandHandler<>), typeof(ValidationDecorator.CommandBaseHandler<>));
 
         services.Decorate(typeof(IQueryHandler<,>), typeof(LoggingDecorator.QueryHandler<,>));
         services.Decorate(typeof(ICommandHandler<,>), typeof(LoggingDecorator.CommandHandler<,>));
-        services.Decorate(typeof(ICommandHandler<>), typeof(LoggingDecorator.CommandBaseHandler<>));
+        services.TryDecorate(typeof(ICommandHandler<>), typeof(LoggingDecorator.CommandBaseHandler<>));
 
         services.Scan(static scan => scan.FromAssembliesOf(typeof(DependencyInjection))
             .AddClasses(static classes => classes.AssignableTo(typeof(IDomainEventHandler<>)), publicOnly: false)
@@ -35,7 +35,6 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
-        // Register domain services
         services.AddScoped<Domain.Meetings.IMeetingSchedulerService, MeetingScheduler.Services.MeetingSchedulerService>();
 
         return services;

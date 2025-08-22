@@ -4,7 +4,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.MeetingScheduler.Services;
 
-internal sealed class MeetingSchedulerService : IMeetingSchedulerService
+/// <summary>
+/// Provides meeting scheduling capabilities using repository data.
+/// </summary>
+public sealed class MeetingSchedulerService : IMeetingSchedulerService
 {
     private readonly IMeetingRepository _meetingRepository;
     private readonly ILogger<MeetingSchedulerService> _logger;
@@ -15,6 +18,14 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Finds the earliest available time slot that fits the requested window.
+    /// </summary>
+    /// <param name="participantIds">Identifiers of meeting participants.</param>
+    /// <param name="durationMinutes">Meeting length in minutes.</param>
+    /// <param name="earliestStart">Start of the scheduling window.</param>
+    /// <param name="latestEnd">End of the scheduling window.</param>
+    /// <returns>The start time of the first available slot or <see langword="null"/>.</returns>
     public async Task<DateTime?> FindEarliestAvailableSlotAsync(
         List<int> participantIds,
         int durationMinutes,
@@ -24,7 +35,6 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
         _logger.LogDebug("Starting scheduling algorithm for {ParticipantCount} participants, duration {Duration} minutes",
             participantIds?.Count ?? 0, durationMinutes);
 
-        // Validate input parameters
         if (participantIds == null || participantIds.Count == 0)
         {
             _logger.LogWarning("Scheduling failed: No participants provided");
@@ -44,7 +54,6 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
             return null;
         }
 
-        // Get all existing meetings for the participants within the time range
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         List<Meeting> existingMeetings = await _meetingRepository.GetConflictingMeetingsAsync(
             participantIds,
@@ -55,7 +64,13 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
         _logger.LogDebug("Retrieved {MeetingCount} existing meetings in {ElapsedMs}ms",
             existingMeetings.Count, stopwatch.ElapsedMilliseconds);
 
-        // Generate potential time slots and find the first available one
+        if (earliestStart.AddMinutes(durationMinutes) >= latestEnd)
+        {
+            _logger.LogWarning("Scheduling failed: duration {Duration} does not fit within window {EarliestStart}-{LatestEnd}",
+                durationMinutes, earliestStart, latestEnd);
+            return null;
+        }
+
         DateTime currentSlot = GetNextBusinessHourSlot(earliestStart);
         int slotsChecked = 0;
 
@@ -64,7 +79,6 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
             DateTime slotEnd = currentSlot.AddMinutes(durationMinutes);
             slotsChecked++;
 
-            // Check if this slot is within business hours and has no conflicts
             if (IsWithinBusinessHours(currentSlot, slotEnd) &&
                 !HasConflictWithExistingMeetings(currentSlot, slotEnd, existingMeetings, participantIds))
             {
@@ -73,10 +87,8 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
                 return currentSlot;
             }
 
-            // Move to next potential slot (15-minute increments for efficiency)
             currentSlot = currentSlot.AddMinutes(15);
 
-            // Skip to next business day if we've passed business hours
             if (!IsWithinBusinessHours(currentSlot, currentSlot))
             {
                 currentSlot = GetNextBusinessHourSlot(currentSlot.Date.AddDays(1));
@@ -85,7 +97,7 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
 
         _logger.LogWarning("No available slot found after checking {SlotsChecked} slots for {ParticipantCount} participants",
             slotsChecked, participantIds.Count);
-        return null; // No available slot found
+        return null;
     }
 
     private static DateTime GetNextBusinessHourSlot(DateTime dateTime)
@@ -97,14 +109,11 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
             return businessStart;
         }
 
-        // If it's already past business hours, move to next day
         var businessEnd = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 17, 0, 0, DateTimeKind.Utc);
         if (dateTime >= businessEnd)
         {
             return GetNextBusinessHourSlot(dateTime.Date.AddDays(1));
         }
-
-        // Round up to next 15-minute increment within business hours
         int minutes = dateTime.Minute;
         int roundedMinutes = (minutes + 14) / 15 * 15;
 
@@ -118,8 +127,8 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
 
     private static bool IsWithinBusinessHours(DateTime startTime, DateTime endTime)
     {
-        var businessStart = new TimeOnly(9, 0); // 09:00
-        var businessEnd = new TimeOnly(17, 0);  // 17:00
+        var businessStart = new TimeOnly(9, 0);
+        var businessEnd = new TimeOnly(17, 0);
 
         var startTimeOnly = TimeOnly.FromDateTime(startTime);
         var endTimeOnly = TimeOnly.FromDateTime(endTime);
@@ -135,21 +144,18 @@ internal sealed class MeetingSchedulerService : IMeetingSchedulerService
     {
         foreach (Meeting meeting in existingMeetings)
         {
-            // Check if there's any time overlap
             bool timeOverlap = slotStart < meeting.EndTime && slotEnd > meeting.StartTime;
 
             if (timeOverlap)
             {
-                // Check if there are common participants
                 bool hasCommonParticipants = participantIds.Any(id => meeting.ParticipantIds.Contains(id));
 
                 if (hasCommonParticipants)
                 {
-                    return true; // Conflict found
+                    return true;
                 }
             }
         }
-
-        return false; // No conflicts
+        return false;
     }
 }

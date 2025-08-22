@@ -1,3 +1,4 @@
+using System.Reflection;
 using Application.Abstractions.Repositories;
 using Application.DTOs;
 using Application.MeetingScheduler.Meetings.ScheduleMeeting;
@@ -30,10 +31,17 @@ public class ScheduleMeetingCommandHandlerTests
             mockLogger.Object);
     }
 
+    private static MeetingUser CreateUser(int id, string name)
+    {
+        var user = new MeetingUser(name);
+        typeof(MeetingUser).GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(user, id);
+        return user;
+    }
+
     [Fact]
     public async Task Handle_WithValidCommand_ShouldReturnSuccessResult()
     {
-        // Arrange
         var participantIds = new List<int> { 1, 2, 3 };
         const int durationMinutes = 60;
         var earliestStart = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc);
@@ -42,9 +50,9 @@ public class ScheduleMeetingCommandHandlerTests
 
         var participants = new List<MeetingUser>
         {
-            new("User 1"),
-            new("User 2"),
-            new("User 3")
+            CreateUser(1, "User 1"),
+            CreateUser(2, "User 2"),
+            CreateUser(3, "User 3")
         };
 
         var availableSlot = new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc);
@@ -62,10 +70,8 @@ public class ScheduleMeetingCommandHandlerTests
             .Setup(r => r.AddAsync(It.IsAny<Meeting>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(meeting);
 
-        // Act
         Result<MeetingDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal(3, result.Value.Participants.Count);
@@ -76,28 +82,24 @@ public class ScheduleMeetingCommandHandlerTests
     [Fact]
     public async Task Handle_WithMissingParticipants_ShouldReturnFailureResult()
     {
-        // Arrange
         var participantIds = new List<int> { 1, 2, 3 };
         const int durationMinutes = 60;
         var earliestStart = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc);
         var latestEnd = new DateTime(2024, 1, 15, 17, 0, 0, DateTimeKind.Utc);
         var command = new ScheduleMeetingCommand(participantIds, durationMinutes, earliestStart, latestEnd);
 
-        // Only return 2 participants instead of 3
         var participants = new List<MeetingUser>
         {
-            new("User 1"),
-            new("User 2")
+            CreateUser(1, "User 1"),
+            CreateUser(2, "User 2")
         };
 
         _mockUserRepository
             .Setup(r => r.GetByIdsAsync(participantIds, It.IsAny<CancellationToken>()))
             .ReturnsAsync(participants);
 
-        // Act
         Result<MeetingDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(UserErrors.NotFound(3), result.Error);
     }
@@ -105,7 +107,6 @@ public class ScheduleMeetingCommandHandlerTests
     [Fact]
     public async Task Handle_WithNoAvailableSlot_ShouldReturnFailureResult()
     {
-        // Arrange
         var participantIds = new List<int> { 1, 2 };
         const int durationMinutes = 60;
         var earliestStart = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc);
@@ -114,8 +115,8 @@ public class ScheduleMeetingCommandHandlerTests
 
         var participants = new List<MeetingUser>
         {
-            new("User 1"),
-            new("User 2")
+            CreateUser(1, "User 1"),
+            CreateUser(2, "User 2")
         };
 
         _mockUserRepository
@@ -126,10 +127,8 @@ public class ScheduleMeetingCommandHandlerTests
             .Setup(s => s.FindEarliestAvailableSlotAsync(participantIds, durationMinutes, earliestStart, latestEnd))
             .ReturnsAsync((DateTime?)null);
 
-        // Act
         Result<MeetingDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(MeetingErrors.NoAvailableSlot, result.Error);
     }
@@ -137,7 +136,6 @@ public class ScheduleMeetingCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_ShouldCallMeetingSchedulerService()
     {
-        // Arrange
         var participantIds = new List<int> { 1, 2 };
         const int durationMinutes = 30;
         var earliestStart = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc);
@@ -146,8 +144,8 @@ public class ScheduleMeetingCommandHandlerTests
 
         var participants = new List<MeetingUser>
         {
-            new("User 1"),
-            new("User 2")
+            CreateUser(1, "User 1"),
+            CreateUser(2, "User 2")
         };
 
         var availableSlot = new DateTime(2024, 1, 15, 14, 0, 0, DateTimeKind.Utc);
@@ -165,10 +163,8 @@ public class ScheduleMeetingCommandHandlerTests
             .Setup(r => r.AddAsync(It.IsAny<Meeting>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(meeting);
 
-        // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         _mockMeetingSchedulerService.Verify(
             s => s.FindEarliestAvailableSlotAsync(participantIds, durationMinutes, earliestStart, latestEnd),
             Times.Once);
@@ -177,7 +173,6 @@ public class ScheduleMeetingCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_ShouldCallMeetingRepository()
     {
-        // Arrange
         var participantIds = new List<int> { 1, 2 };
         const int durationMinutes = 45;
         var earliestStart = new DateTime(2024, 1, 15, 9, 0, 0, DateTimeKind.Utc);
@@ -205,10 +200,8 @@ public class ScheduleMeetingCommandHandlerTests
             .Setup(r => r.AddAsync(It.IsAny<Meeting>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(meeting);
 
-        // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         _mockMeetingRepository.Verify(
             r => r.AddAsync(It.Is<Meeting>(m =>
                 m.StartTime == availableSlot &&

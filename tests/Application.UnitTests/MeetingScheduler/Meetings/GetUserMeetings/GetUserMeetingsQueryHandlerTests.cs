@@ -1,3 +1,4 @@
+using System.Reflection;
 using Application.Abstractions.Repositories;
 using Application.DTOs;
 using Application.MeetingScheduler.Meetings.GetUserMeetings;
@@ -24,13 +25,20 @@ public class GetUserMeetingsQueryHandlerTests
             _mockUserRepository.Object);
     }
 
+    private static MeetingUser CreateUser(int id, string name)
+    {
+        var user = new MeetingUser(name);
+        typeof(MeetingUser).GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(user, id);
+        return user;
+    }
+
     [Fact]
     public async Task Handle_WithValidUserId_ShouldReturnUserMeetings()
     {
-        // Arrange
         const int userId = 1;
         var query = new GetUserMeetingsQuery(userId);
-        var user = new MeetingUser("John Doe");
+        var user = CreateUser(1, "John Doe");
 
         var meetings = new List<Meeting>
         {
@@ -39,17 +47,23 @@ public class GetUserMeetingsQueryHandlerTests
         };
 
         _mockUserRepository
-            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         _mockMeetingRepository
-            .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(meetings);
 
-        // Act
+        _mockUserRepository
+            .Setup(r => r.GetByIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([
+                CreateUser(1, "John Doe"),
+                CreateUser(2, "Jane"),
+                CreateUser(3, "Bob")
+            ]);
+
         Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal(2, result.Value.Count);
@@ -60,7 +74,6 @@ public class GetUserMeetingsQueryHandlerTests
     [Fact]
     public async Task Handle_WithNonExistentUserId_ShouldReturnFailureResult()
     {
-        // Arrange
         const int userId = 999;
         var query = new GetUserMeetingsQuery(userId);
 
@@ -68,10 +81,8 @@ public class GetUserMeetingsQueryHandlerTests
             .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((MeetingUser?)null);
 
-        // Act
         Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(UserErrors.NotFound(userId), result.Error);
     }
@@ -79,23 +90,20 @@ public class GetUserMeetingsQueryHandlerTests
     [Fact]
     public async Task Handle_WithUserWithNoMeetings_ShouldReturnEmptyList()
     {
-        // Arrange
         const int userId = 1;
         var query = new GetUserMeetingsQuery(userId);
-        var user = new MeetingUser("John Doe");
+        var user = CreateUser(1, "John Doe");
 
         _mockUserRepository
-            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         _mockMeetingRepository
             .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        // Act
         Result<List<MeetingDto>> result = await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Empty(result.Value);
@@ -104,24 +112,21 @@ public class GetUserMeetingsQueryHandlerTests
     [Fact]
     public async Task Handle_WithValidUserId_ShouldCallRepositoryMethods()
     {
-        // Arrange
         const int userId = 1;
         var query = new GetUserMeetingsQuery(userId);
-        var user = new MeetingUser("John Doe");
+        var user = CreateUser(1, "John Doe");
         var meetings = new List<Meeting>();
 
         _mockUserRepository
-            .Setup(static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         _mockMeetingRepository
-            .Setup(static r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(meetings);
 
-        // Act
         await _handler.Handle(query, CancellationToken.None);
 
-        // Assert
         _mockUserRepository.Verify(
             static r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()),
             Times.Once);
@@ -134,10 +139,9 @@ public class GetUserMeetingsQueryHandlerTests
     [Fact]
     public async Task Handle_WithCancellationToken_ShouldPassTokenToRepositories()
     {
-        // Arrange
         const int userId = 1;
         var query = new GetUserMeetingsQuery(userId);
-        var user = new MeetingUser("John Doe");
+        var user = CreateUser(1, "John Doe");
         var meetings = new List<Meeting>();
         var cancellationToken = new CancellationToken();
 
@@ -149,10 +153,8 @@ public class GetUserMeetingsQueryHandlerTests
             .Setup(r => r.GetUserMeetingsAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(meetings);
 
-        // Act
         await _handler.Handle(query, cancellationToken);
 
-        // Assert
         _mockUserRepository.Verify(
             r => r.GetByIdAsync(userId, cancellationToken),
             Times.Once);
