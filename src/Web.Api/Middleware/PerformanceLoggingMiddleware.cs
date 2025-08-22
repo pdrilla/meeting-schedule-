@@ -6,7 +6,7 @@ public class PerformanceLoggingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<PerformanceLoggingMiddleware> _logger;
-    private const int SlowRequestThresholdMs = 1000; // Log requests taking longer than 1 second
+    private const int SlowRequestThresholdMs = 1000;
 
     public PerformanceLoggingMiddleware(RequestDelegate next, ILogger<PerformanceLoggingMiddleware> logger)
     {
@@ -18,11 +18,7 @@ public class PerformanceLoggingMiddleware
     {
         var stopwatch = Stopwatch.StartNew();
 
-        try
-        {
-            await _next(context);
-        }
-        finally
+        context.Response.OnStarting(() =>
         {
             stopwatch.Stop();
 
@@ -42,8 +38,11 @@ public class PerformanceLoggingMiddleware
                     method, path, elapsedMs, statusCode);
             }
 
-            // Add performance metrics to response headers for monitoring
             context.Response.Headers.TryAdd("X-Response-Time-Ms", elapsedMs.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
+
+            return Task.CompletedTask;
+        });
+
+        await _next(context);
     }
 }

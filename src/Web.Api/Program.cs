@@ -27,10 +27,6 @@ app.MapEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwaggerWithUi();
-
-    app.ApplyMigrations();
-
-    await app.SeedDatabaseAsync();
 }
 
 app.MapHealthChecks("health", new HealthCheckOptions
@@ -51,13 +47,9 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 
 app.UseAuthorization();
-
-// REMARK: If you want to use Controllers, you'll need this.
 app.MapControllers();
 
 await app.RunAsync();
-
-// REMARK: Required for functional and integration tests to work.
 namespace Web.Api
 {
     public partial class Program;

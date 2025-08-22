@@ -1,7 +1,6 @@
 using Application.Abstractions.Data;
 using Application.Abstractions.Repositories;
 using Domain.Meetings;
-using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
 
@@ -14,23 +13,26 @@ internal sealed class MeetingUserRepository : IMeetingUserRepository
         _context = context;
     }
 
-    public async Task<MeetingUser?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public Task<MeetingUser?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        return await _context.MeetingUsers
-            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        MeetingUser? user = _context.MeetingUsers.FirstOrDefault(u => u.Id == id);
+        return Task.FromResult(user);
     }
 
-    public async Task<MeetingUser> AddAsync(MeetingUser user, CancellationToken cancellationToken = default)
+    public Task<MeetingUser> AddAsync(MeetingUser user, CancellationToken cancellationToken = default)
     {
+        int id = _context.GetNextUserId();
+#pragma warning disable S3011
+        typeof(MeetingUser).GetField("<Id>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(user, id);
+#pragma warning restore S3011
         _context.MeetingUsers.Add(user);
-        await _context.SaveChangesAsync(cancellationToken);
-        return user;
+        return Task.FromResult(user);
     }
 
-    public async Task<List<MeetingUser>> GetByIdsAsync(List<int> ids, CancellationToken cancellationToken = default)
+    public Task<List<MeetingUser>> GetByIdsAsync(List<int> ids, CancellationToken cancellationToken = default)
     {
-        return await _context.MeetingUsers
-            .Where(u => ids.Contains(u.Id))
-            .ToListAsync(cancellationToken);
+        var users = _context.MeetingUsers.Where(u => ids.Contains(u.Id)).ToList();
+        return Task.FromResult(users);
     }
 }

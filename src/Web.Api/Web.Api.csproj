@@ -10,10 +10,6 @@
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Sinks.Seq" />
@@ -25,7 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Exclude incompatible endpoints that aren't part of the meeting scheduler -->
     <Compile Remove="Endpoints\Users\**" />
     <Compile Remove="Endpoints\Todos\**" />
     <EmbeddedResource Remove="Endpoints\Users\**" />

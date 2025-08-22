@@ -2,20 +2,43 @@ using SharedKernel;
 
 namespace Domain.Meetings;
 
+/// <summary>
+/// Represents a scheduled meeting between participants.
+/// </summary>
 public sealed class Meeting : Entity
 {
     private readonly List<int> _participantIds = [];
 
+    /// <summary>
+    /// Gets the meeting identifier.
+    /// </summary>
     public int Id { get; }
+
+    /// <summary>
+    /// Gets the identifiers of meeting participants.
+    /// </summary>
     public IReadOnlyList<int> ParticipantIds => _participantIds.AsReadOnly();
+
+    /// <summary>
+    /// Gets the UTC start time of the meeting.
+    /// </summary>
     public DateTime StartTime { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC end time of the meeting.
+    /// </summary>
     public DateTime EndTime { get; private set; }
 
-    // Private constructor for EF Core
     private Meeting()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Meeting"/> class.
+    /// </summary>
+    /// <param name="participantIds">Identifiers of meeting participants.</param>
+    /// <param name="startTime">Start time in UTC.</param>
+    /// <param name="endTime">End time in UTC.</param>
     public Meeting(List<int> participantIds, DateTime startTime, DateTime endTime)
     {
         ValidateTimeSlot(startTime, endTime);
@@ -29,14 +52,18 @@ public sealed class Meeting : Entity
         Raise(new MeetingScheduledDomainEvent(Id, participantIds, startTime, endTime));
     }
 
-    public bool HasConflictWith(Meeting other)
+    /// <summary>
+    /// Determines whether this meeting overlaps with another for any participant.
+    /// </summary>
+    /// <param name="other">The meeting to compare against.</param>
+    /// <returns><c>true</c> if a conflict exists; otherwise, <c>false</c>.</returns>
+    public bool HasConflictWith(Meeting? other)
     {
         if (other == null)
         {
             return false;
         }
 
-        // Check if there's any overlap in time
         bool timeOverlap = StartTime < other.EndTime && EndTime > other.StartTime;
 
         if (!timeOverlap)
@@ -44,14 +71,16 @@ public sealed class Meeting : Entity
             return false;
         }
 
-        // Check if there are common participants
         return _participantIds.Any(id => other._participantIds.Contains(id));
     }
 
+    /// <summary>
+    /// Checks whether the meeting occurs within the configured business hours.
+    /// </summary>
     public bool IsWithinBusinessHours()
     {
-        var businessStart = new TimeOnly(9, 0); // 09:00
-        var businessEnd = new TimeOnly(17, 0);  // 17:00
+        var businessStart = new TimeOnly(9, 0);
+        var businessEnd = new TimeOnly(17, 0);
 
         var startTimeOnly = TimeOnly.FromDateTime(StartTime);
         var endTimeOnly = TimeOnly.FromDateTime(EndTime);
@@ -59,6 +88,9 @@ public sealed class Meeting : Entity
         return startTimeOnly >= businessStart && endTimeOnly <= businessEnd;
     }
 
+    /// <summary>
+    /// Revalidates the current meeting time slot.
+    /// </summary>
     public void ValidateTimeSlot()
     {
         ValidateTimeSlot(StartTime, EndTime);
@@ -74,8 +106,8 @@ public sealed class Meeting : Entity
 
     private static void ValidateBusinessHours(DateTime startTime, DateTime endTime)
     {
-        var businessStart = new TimeOnly(9, 0); // 09:00
-        var businessEnd = new TimeOnly(17, 0);  // 17:00
+        var businessStart = new TimeOnly(9, 0);
+        var businessEnd = new TimeOnly(17, 0);
 
         var startTimeOnly = TimeOnly.FromDateTime(startTime);
         var endTimeOnly = TimeOnly.FromDateTime(endTime);

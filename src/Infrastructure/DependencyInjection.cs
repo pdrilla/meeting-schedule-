@@ -3,13 +3,11 @@ using Application.Abstractions.Authentication;
 using Application.Abstractions.Data;
 using Infrastructure.Authentication;
 using Infrastructure.Authorization;
-using Infrastructure.Database;
+using Infrastructure.Data;
 using Infrastructure.DomainEvents;
 using Infrastructure.Time;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -25,8 +23,7 @@ public static class DependencyInjection
     {
         return services
             .AddServices()
-            .AddDatabase(configuration)
-            .AddHealthChecks(configuration)
+            .AddHealthChecksInternal()
             .AddAuthenticationInternal(configuration)
             .AddAuthorizationInternal();
     }
@@ -34,65 +31,18 @@ public static class DependencyInjection
     private static IServiceCollection AddServices(this IServiceCollection services)
     {
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
+        services.AddSingleton<IApplicationDbContext, InMemoryApplicationDbContext>();
 
-        // Register repositories
-        services.AddScoped<Application.Abstractions.Repositories.IUserRepository, Repositories.UserRepository>();
         services.AddScoped<Application.Abstractions.Repositories.IMeetingUserRepository, Repositories.MeetingUserRepository>();
         services.AddScoped<Application.Abstractions.Repositories.IMeetingRepository, Repositories.MeetingRepository>();
 
-
-
         return services;
     }
 
-    private static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
+    private static IServiceCollection AddHealthChecksInternal(this IServiceCollection services)
     {
-        string? connectionString = configuration.GetConnectionString("Database");
-
-        services.AddDbContext<ApplicationDbContext>(options =>
-        {
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                // Use in-memory database for development
-                options.UseInMemoryDatabase("MeetingSchedulerDb");
-            }
-            else
-            {
-                options.UseNpgsql(connectionString, npgsqlOptions =>
-                {
-                    npgsqlOptions.MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Default);
-                    npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
-                })
-                .UseSnakeCaseNamingConvention()
-                .EnableSensitiveDataLogging(false)
-                .EnableServiceProviderCaching()
-                .EnableDetailedErrors(false);
-            }
-        });
-
-        services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
-
-        return services;
-    }
-
-    private static IServiceCollection AddHealthChecks(this IServiceCollection services, IConfiguration configuration)
-    {
-        IHealthChecksBuilder healthChecksBuilder = services.AddHealthChecks();
-
-        string? connectionString = configuration.GetConnectionString("Database");
-        if (!string.IsNullOrEmpty(connectionString))
-        {
-            healthChecksBuilder.AddNpgSql(connectionString, name: "meeting-scheduler-db");
-        }
-        else
-        {
-            // Add a simple health check for in-memory database
-            healthChecksBuilder.AddCheck("meeting-scheduler-inmemory", static () =>
-                Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("In-memory database is available"));
-        }
-
+        services.AddHealthChecks();
         return services;
     }
 
