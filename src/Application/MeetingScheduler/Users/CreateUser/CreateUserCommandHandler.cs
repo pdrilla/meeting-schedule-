@@ -8,7 +8,10 @@ using SharedKernel;
 
 namespace Application.MeetingScheduler.Users.CreateUser;
 
-internal sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand, UserDto>
+/// <summary>
+/// Handles creation of users for the meeting scheduler.
+/// </summary>
+public sealed class CreateUserCommandHandler : ICommandHandler<CreateUserCommand, UserDto>
 {
     private readonly IMeetingUserRepository _userRepository;
     private readonly ILogger<CreateUserCommandHandler> _logger;

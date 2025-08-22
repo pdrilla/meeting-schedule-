@@ -1,16 +1,14 @@
-﻿using Domain.Meetings;
-using Domain.Todos;
-using Domain.Users;
-using Microsoft.EntityFrameworkCore;
+using Domain.Meetings;
 
 namespace Application.Abstractions.Data;
 
 public interface IApplicationDbContext
 {
-    DbSet<User> Users { get; }
-    DbSet<MeetingUser> MeetingUsers { get; }
-    DbSet<Meeting> Meetings { get; }
-    DbSet<TodoItem> TodoItems { get; }
+    List<MeetingUser> MeetingUsers { get; }
+    List<Meeting> Meetings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    int GetNextUserId();
+    int GetNextMeetingId();
 }

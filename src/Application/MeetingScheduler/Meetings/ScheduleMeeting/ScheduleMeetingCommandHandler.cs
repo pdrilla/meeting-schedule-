@@ -8,7 +8,10 @@ using SharedKernel;
 
 namespace Application.MeetingScheduler.Meetings.ScheduleMeeting;
 
-internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMeetingCommand, MeetingDto>
+/// <summary>
+/// Schedules meetings while avoiding participant conflicts.
+/// </summary>
+public sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMeetingCommand, MeetingDto>
 {
     private readonly IMeetingSchedulerService _meetingSchedulerService;
     private readonly IMeetingRepository _meetingRepository;
@@ -32,7 +35,6 @@ internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMe
         _logger.LogInformation("Scheduling meeting for {ParticipantCount} participants: {ParticipantIds}, Duration: {Duration} minutes, Time window: {EarliestStart} - {LatestEnd}",
             command.ParticipantIds.Count, command.ParticipantIds, command.DurationMinutes, command.EarliestStart, command.LatestEnd);
 
-        // Validate that all participants exist
         List<MeetingUser> participants = await _userRepository.GetByIdsAsync(command.ParticipantIds, cancellationToken);
 
         if (participants.Count != command.ParticipantIds.Count)
@@ -44,7 +46,6 @@ internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMe
             return Result.Failure<MeetingDto>(UserErrors.NotFound(missingIds[0]));
         }
 
-        // Find the earliest available time slot
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         DateTime? availableSlot = await _meetingSchedulerService.FindEarliestAvailableSlotAsync(
             command.ParticipantIds,
@@ -63,7 +64,6 @@ internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMe
             return Result.Failure<MeetingDto>(MeetingErrors.NoAvailableSlot);
         }
 
-        // Create the meeting
         DateTime startTime = availableSlot.Value;
         DateTime endTime = startTime.AddMinutes(command.DurationMinutes);
 
@@ -77,7 +77,6 @@ internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMe
             _logger.LogInformation("Successfully created meeting {MeetingId} for participants {ParticipantIds} at {StartTime} - {EndTime}",
                 createdMeeting.Id, command.ParticipantIds, startTime, endTime);
 
-            // Create the response DTO
             var participantDtos = participants
                 .Select(static p => new UserDto(p.Id, p.Name))
                 .ToList();
@@ -95,7 +94,6 @@ internal sealed class ScheduleMeetingCommandHandler : ICommandHandler<ScheduleMe
             _logger.LogWarning(ex, "Meeting creation failed for participants {ParticipantIds}: {ErrorMessage}",
                 command.ParticipantIds, ex.Message);
 
-            // Handle domain validation errors
             if (ex.Message.Contains("business hours"))
             {
                 return Result.Failure<MeetingDto>(MeetingErrors.OutsideBusinessHours);

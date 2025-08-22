@@ -24,7 +24,6 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_ShouldReturnSuccessResult()
     {
-        // Arrange
         const string userName = "John Doe";
         var command = new CreateUserCommand(userName);
         var user = new MeetingUser(userName);
@@ -33,10 +32,8 @@ public class CreateUserCommandHandlerTests
             .Setup(static r => r.AddAsync(It.IsAny<MeetingUser>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        // Act
         Result<UserDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal(userName, result.Value.Name);
@@ -46,7 +43,6 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WithValidCommand_ShouldCallRepositoryAddAsync()
     {
-        // Arrange
         const string userName = "Jane Smith";
         var command = new CreateUserCommand(userName);
         var user = new MeetingUser(userName);
@@ -55,10 +51,8 @@ public class CreateUserCommandHandlerTests
             .Setup(static r => r.AddAsync(It.IsAny<MeetingUser>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         _mockUserRepository.Verify(
             static r => r.AddAsync(It.Is<MeetingUser>(static u => u.Name == userName), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -67,14 +61,11 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenDomainValidationFails_ShouldReturnFailureResult()
     {
-        // Arrange
         const string emptyName = "";
         var command = new CreateUserCommand(emptyName);
 
-        // Act
         Result<UserDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(UserErrors.EmptyName, result.Error);
     }
@@ -82,14 +73,11 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenNameTooLong_ShouldReturnFailureResult()
     {
-        // Arrange
-        string longName = new string('A', 101); // 101 characters
+        string longName = new string('A', 101);
         var command = new CreateUserCommand(longName);
 
-        // Act
         Result<UserDto> result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal(UserErrors.NameTooLong, result.Error);
     }
@@ -97,7 +85,6 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenRepositoryThrowsException_ShouldPropagateException()
     {
-        // Arrange
         const string userName = "John Doe";
         var command = new CreateUserCommand(userName);
 
@@ -105,7 +92,6 @@ public class CreateUserCommandHandlerTests
             .Setup(r => r.AddAsync(It.IsAny<MeetingUser>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
-        // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _handler.Handle(command, CancellationToken.None));
     }
@@ -113,7 +99,6 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WithCancellationToken_ShouldPassTokenToRepository()
     {
-        // Arrange
         const string userName = "John Doe";
         var command = new CreateUserCommand(userName);
         var user = new MeetingUser(userName);
@@ -123,10 +108,8 @@ public class CreateUserCommandHandlerTests
             .Setup(r => r.AddAsync(It.IsAny<MeetingUser>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        // Act
         await _handler.Handle(command, cancellationToken);
 
-        // Assert
         _mockUserRepository.Verify(
             r => r.AddAsync(It.IsAny<MeetingUser>(), cancellationToken),
             Times.Once);

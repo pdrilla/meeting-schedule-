@@ -7,7 +7,6 @@ public sealed class MeetingUser : Entity
     public int Id { get; }
     public string Name { get; private set; } = string.Empty;
 
-    // Private constructor for EF Core
     private MeetingUser()
     {
     }

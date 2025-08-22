@@ -10,7 +10,6 @@ public class MeetingSchedulerDbTests
     [Fact]
     public async Task CanCreateAndQueryMeetingUsers()
     {
-        // Arrange
         var services = new ServiceCollection();
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
@@ -19,14 +18,12 @@ public class MeetingSchedulerDbTests
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        // Act
         var user = new MeetingUser("Test User");
         context.MeetingUsers.Add(user);
         await context.SaveChangesAsync();
 
         var retrievedUser = await context.MeetingUsers.FirstOrDefaultAsync(u => u.Name == "Test User");
 
-        // Assert
         Assert.NotNull(retrievedUser);
         Assert.Equal("Test User", retrievedUser.Name);
     }
@@ -34,7 +31,6 @@ public class MeetingSchedulerDbTests
     [Fact]
     public async Task CanCreateAndQueryMeetings()
     {
-        // Arrange
         var services = new ServiceCollection();
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
@@ -43,7 +39,6 @@ public class MeetingSchedulerDbTests
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        // Act
         var startTime = DateTime.UtcNow.Date.AddHours(10);
         var endTime = startTime.AddHours(1);
         var meeting = new Meeting([1, 2], startTime, endTime);
@@ -53,7 +48,6 @@ public class MeetingSchedulerDbTests
 
         var retrievedMeeting = await context.Meetings.FirstOrDefaultAsync();
 
-        // Assert
         Assert.NotNull(retrievedMeeting);
         Assert.Equal(startTime, retrievedMeeting.StartTime);
         Assert.Equal(endTime, retrievedMeeting.EndTime);
@@ -64,7 +58,6 @@ public class MeetingSchedulerDbTests
     [Fact]
     public async Task MeetingParticipantIdsAreStoredCorrectly()
     {
-        // Arrange
         var services = new ServiceCollection();
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseInMemoryDatabase("TestDb_" + Guid.NewGuid()));
@@ -73,7 +66,6 @@ public class MeetingSchedulerDbTests
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        // Act
         var participantIds = new List<int> { 1, 2, 3, 4, 5 };
         var meeting = new Meeting(
             participantIds,
@@ -85,7 +77,6 @@ public class MeetingSchedulerDbTests
 
         var retrievedMeeting = await context.Meetings.FirstOrDefaultAsync();
 
-        // Assert
         Assert.NotNull(retrievedMeeting);
         Assert.Equal(5, retrievedMeeting.ParticipantIds.Count);
         Assert.All(participantIds, id => Assert.Contains(id, retrievedMeeting.ParticipantIds));

@@ -30,7 +30,7 @@ internal sealed class ScheduleMeetingCommandValidator : AbstractValidator<Schedu
             .GreaterThanOrEqualTo(15)
             .WithMessage("Minimum meeting duration is 15 minutes")
             .WithErrorCode("Meetings.DurationTooShort")
-            .LessThanOrEqualTo(480) // 8 hours max
+            .LessThanOrEqualTo(480)
             .WithMessage("Duration cannot exceed 8 hours (480 minutes)")
             .WithErrorCode("Meetings.DurationTooLong")
             .Must(static duration => duration % 15 == 0)
@@ -38,7 +38,7 @@ internal sealed class ScheduleMeetingCommandValidator : AbstractValidator<Schedu
             .WithErrorCode("Meetings.InvalidDurationIncrement");
 
         RuleFor(static x => x.EarliestStart)
-            .GreaterThan(DateTime.UtcNow.AddMinutes(-5)) // Allow 5 minutes buffer for clock differences
+            .GreaterThan(DateTime.UtcNow.AddMinutes(-5))
             .WithMessage("Earliest start time must be in the future")
             .WithErrorCode("Meetings.EarliestStartInPast")
             .LessThan(static x => x.LatestEnd)

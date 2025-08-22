@@ -7,7 +7,10 @@ using SharedKernel;
 
 namespace Application.MeetingScheduler.Meetings.GetUserMeetings;
 
-internal sealed class GetUserMeetingsQueryHandler : IQueryHandler<GetUserMeetingsQuery, List<MeetingDto>>
+/// <summary>
+/// Retrieves meetings for a specific user.
+/// </summary>
+public sealed class GetUserMeetingsQueryHandler : IQueryHandler<GetUserMeetingsQuery, List<MeetingDto>>
 {
     private readonly IMeetingRepository _meetingRepository;
     private readonly IMeetingUserRepository _userRepository;
@@ -22,23 +25,19 @@ internal sealed class GetUserMeetingsQueryHandler : IQueryHandler<GetUserMeeting
 
     public async Task<Result<List<MeetingDto>>> Handle(GetUserMeetingsQuery query, CancellationToken cancellationToken)
     {
-        // Verify that the user exists
         MeetingUser? user = await _userRepository.GetByIdAsync(query.UserId, cancellationToken);
         if (user == null)
         {
             return Result.Failure<List<MeetingDto>>(UserErrors.NotFound(query.UserId));
         }
 
-        // Get all meetings for the user
         List<Meeting> meetings = await _meetingRepository.GetUserMeetingsAsync(query.UserId, cancellationToken);
 
-        // Handle empty case
         if (meetings.Count == 0)
         {
             return Result.Success(new List<MeetingDto>());
         }
 
-        // Get all unique participant IDs to minimize database calls
         HashSet<int> allParticipantIds = [];
         foreach (Meeting meeting in meetings)
         {
@@ -48,15 +47,12 @@ internal sealed class GetUserMeetingsQueryHandler : IQueryHandler<GetUserMeeting
             }
         }
 
-        // Get all participants in one database call
         List<MeetingUser> allParticipants = await _userRepository.GetByIdsAsync(
             [.. allParticipantIds],
             cancellationToken);
 
-        // Create a lookup dictionary for fast participant access
         var participantLookup = allParticipants.ToDictionary(p => p.Id);
 
-        // Convert to DTOs
         List<MeetingDto> meetingDtos = [];
 
         foreach (Meeting meeting in meetings)
